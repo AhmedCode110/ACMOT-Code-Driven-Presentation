@@ -5,6 +5,8 @@
 # 2) Final live validation adds the paper-ready comparison:
 #    Baseline_Default vs TRK_NEW24_MATCH88 using Tesla T4, YOLOv8n FP16,
 #    clean processing timing and official TrackEval.
+# This source deliberately avoids comparing against unrelated weaker methods;
+# the strongest claim is the controlled same-protocol baseline comparison.
 
 OVERRIDES = [
     # Detector classes: keep the deployed detector claim exact.
