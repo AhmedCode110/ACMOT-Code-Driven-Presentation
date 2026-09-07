@@ -1,0 +1,11 @@
+.DS_Store
+__pycache__/
+*.pyc
+.build/
+.codex-finalizer/
+node_modules
+*.tmp
+~$*.pptx
+output/*.validation.json
+output/presentation.pptx
+output/presentation_image_backed_backup_*.pptx

@@ -1,0 +1,20 @@
+SLIDE_WIDTH = 1280
+SLIDE_HEIGHT = 720
+
+BACKGROUND_COLOR = "#FFFFFF"
+TEXT_COLOR = "#111827"
+ACCENT_COLOR = "#2563EB"
+
+TITLE_FONT = "Aptos Display"
+BODY_FONT = "Aptos"
+TITLE_SIZE = 38
+BODY_SIZE = 20
+FOOTER_SIZE = 12
+
+MARGIN_LEFT = 58
+MARGIN_RIGHT = 58
+MARGIN_TOP = 42
+MARGIN_BOTTOM = 42
+
+OUTPUT_FILE = "output/presentation_editable.pptx"
+SOURCE_REFERENCE = "reference/original_presentation.pptx"
