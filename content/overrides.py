@@ -1,6 +1,10 @@
 # Final paper/seminar update applied on top of the original editable deck.
-# The presentation keeps the old step-by-step ablation story, then adds the
-# final live FP16/official TrackEval selection as the paper-ready result.
+# Two-layer result story:
+# 1) Development ablation keeps the old presentation flow:
+#    Baseline -> Tuned ByteTrack -> Adaptive Threshold/NMS -> Adaptive Resolution.
+# 2) Final live validation adds the paper-ready comparison:
+#    Baseline_Default vs TRK_NEW24_MATCH88 using Tesla T4, YOLOv8n FP16,
+#    clean processing timing and official TrackEval.
 
 OVERRIDES = [
     # Detector classes: keep the deployed detector claim exact.
