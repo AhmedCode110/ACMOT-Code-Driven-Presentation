@@ -4,16 +4,16 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PARENT="$(dirname "$ROOT")"
 VIDEO_DIR="/Users/ahmedgouda/CLAUDECODEX/Master/macneo_wrk/09_Presentation/Code_Driven_ACMOT_Deck/assets/videos"
-BUILT="$ROOT/output/ACMOT_Final_Paper_Realtime_v3.pptx"
-FINAL_KEY="$PARENT/ACMOT_Final_Paper_Realtime_v3_FINAL.key"
-FINAL_PPTX="$PARENT/ACMOT_Final_Paper_Realtime_v3_FINAL.pptx"
+BUILT="$ROOT/output/ACMOT_Final_Paper_Realtime_v4.pptx"
+FINAL_KEY="$PARENT/ACMOT_Final_Paper_Realtime_v4_FINAL.key"
+FINAL_PPTX="$PARENT/ACMOT_Final_Paper_Realtime_v4_FINAL.pptx"
 
 cd "$ROOT"
 
 echo "Project: $ROOT"
 echo "Branch: $(git branch --show-current)"
-if [[ "$(git branch --show-current)" != "acmot-paper-realtime-v3" ]]; then
-  echo "ERROR: expected branch acmot-paper-realtime-v3" >&2
+if [[ "$(git branch --show-current)" != "acmot-paper-realtime-v4" ]]; then
+  echo "ERROR: expected branch acmot-paper-realtime-v4" >&2
   exit 1
 fi
 
@@ -22,17 +22,12 @@ if [[ ! -d "$VIDEO_DIR" ]]; then
   exit 1
 fi
 
-# Prefer a comparison video whose name contains both Baseline and AC-MOT/ACMOT.
-VIDEO="$(find "$VIDEO_DIR" -maxdepth 1 -type f \( -iname '*.mp4' -o -iname '*.mov' -o -iname '*.m4v' \) -print | \
-  awk 'BEGIN{IGNORECASE=1} /baseline/ && /ac[-_ ]?mot|acmot/ {print; exit}' || true)"
+VIDEO="$(find "$VIDEO_DIR" -maxdepth 1 -type f \( -iname '*.mp4' -o -iname '*.mov' -o -iname '*.m4v' \) -print | awk 'BEGIN{IGNORECASE=1} /baseline/ && /ac[-_ ]?mot|acmot/ {print; exit}' || true)"
 
-# Second preference: comparison/vs naming.
 if [[ -z "$VIDEO" ]]; then
-  VIDEO="$(find "$VIDEO_DIR" -maxdepth 1 -type f \( -iname '*.mp4' -o -iname '*.mov' -o -iname '*.m4v' \) -print | \
-    awk 'BEGIN{IGNORECASE=1} /compar|vs/ {print; exit}' || true)"
+  VIDEO="$(find "$VIDEO_DIR" -maxdepth 1 -type f \( -iname '*.mp4' -o -iname '*.mov' -o -iname '*.m4v' \) -print | awk 'BEGIN{IGNORECASE=1} /compar|vs/ {print; exit}' || true)"
 fi
 
-# Final fallback: first supported video in the exact folder supplied by the user.
 if [[ -z "$VIDEO" ]]; then
   VIDEO="$(find "$VIDEO_DIR" -maxdepth 1 -type f \( -iname '*.mp4' -o -iname '*.mov' -o -iname '*.m4v' \) -print -quit 2>/dev/null || true)"
 fi
