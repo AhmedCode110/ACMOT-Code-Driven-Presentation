@@ -9,6 +9,7 @@ from datetime import datetime
 from pathlib import Path
 
 from content.overrides import OVERRIDES
+from content.final_polish import FINAL_OVERRIDES
 from presentation import slide_count
 from theme.constants import OUTPUT_FILE, SOURCE_REFERENCE
 
@@ -17,6 +18,7 @@ ROOT = Path(__file__).resolve().parent
 BUILD_DIR = ROOT / ".build"
 NODE_BUILDER = ROOT / "scripts" / "build_deck.mjs"
 XML_FORMATTER = ROOT / "scripts" / "xml_apply_overrides.py"
+FINAL_POLISH_XML = ROOT / "scripts" / "final_polish_xml.py"
 SLIDES_JSON = BUILD_DIR / "slides_runtime.json"
 OUTPUT = ROOT / OUTPUT_FILE
 
@@ -76,7 +78,6 @@ def resolve_skill_dir() -> Path:
 
     matches = [Path(p) for p in glob.glob(DEFAULT_SKILL_GLOB) if Path(p).is_dir()]
     if matches:
-        # Version directories are numeric; newest mtime is the safest fallback when versions vary.
         return max(matches, key=lambda p: p.stat().st_mtime)
 
     raise RuntimeError(
@@ -108,8 +109,6 @@ def backup_existing_output() -> Path | None:
 def prepare_runtime_files(node_modules: Path) -> None:
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
 
-    # The builder imports @oai/artifact-tool by package name.  Make the resolved
-    # Codex/runtime modules visible without requiring a project-local npm install.
     for link in (BUILD_DIR / "node_modules", ROOT / "node_modules"):
         if link.is_symlink() and not link.exists():
             link.unlink()
@@ -120,7 +119,7 @@ def prepare_runtime_files(node_modules: Path) -> None:
         __import__("json").dumps(
             {
                 "source": str(ROOT / SOURCE_REFERENCE),
-                "overrides": OVERRIDES,
+                "overrides": OVERRIDES + FINAL_OVERRIDES,
                 "output": str(OUTPUT),
             },
             indent=2,
@@ -154,11 +153,15 @@ def main() -> None:
 
     subprocess.run([node, str(NODE_BUILDER)], check=True, env=env)
 
-    # Apply only conservative package-level typography/autofit fixes after the
-    # editable deck has passed the Artifact Tool finalizer.
+    # First pass: preserve the established editable typography/chart cleanup.
     subprocess.run([sys.executable, str(XML_FORMATTER), str(OUTPUT)], check=True)
 
-    # Validate the post-processed package, exact slide count and official values.
+    # Second pass: Results-only polish for slides 54,55,56,58,59. This changes
+    # native text formatting/alignment only and keeps charts/shapes editable.
+    subprocess.run([sys.executable, str(FINAL_POLISH_XML), str(OUTPUT)], check=True)
+
+    # Validate post-processed package, exact slide count, exact official values,
+    # and rejection of historical slide-59 ablation numerics.
     subprocess.run([sys.executable, str(ROOT / "scripts" / "validate.py")], check=True)
     print(f"Built {slide_count()} slides -> {OUTPUT}")
 
