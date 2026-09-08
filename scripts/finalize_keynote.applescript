@@ -1,11 +1,6 @@
 -- Finalize the generated editable PPTX in Keynote on macOS.
 -- Usage:
 -- osascript scripts/finalize_keynote.applescript <input.pptx> <video.mp4> <output.key> <output.pptx>
---
--- Keep this script deliberately simple. Some Keynote builds expose imported
--- PowerPoint slides/movies through proxy collections that do not understand
--- AppleScript's `count` message reliably. We therefore avoid collection-count
--- checks and always start from the freshly generated PPTX.
 
 on run argv
     if (count of argv) is not 4 then
@@ -20,28 +15,34 @@ on run argv
 
     tell application "Keynote"
         activate
-        set theDoc to open (POSIX file inputPptx)
-        delay 3
+        open (POSIX file inputPptx)
+        delay 4
 
+        -- Some Keynote builds return missing value from `open`. Always bind the
+        -- actual document explicitly from the front window instead.
+        set theDoc to front document
+        if theDoc is missing value then error "Keynote opened the PPTX but no front document was available."
+
+        -- Use the document canvas size only after front document is resolved.
         set docWidth to width of theDoc
         set docHeight to height of theDoc
         set targetSlide to slide 59 of theDoc
 
         tell targetSlide
-            -- The source is a freshly built PPTX, so no destructive movie cleanup
-            -- is needed here. Keynote imports a supported MP4 through `make new
-            -- image`; for movie files the resulting object is a native movie item
-            -- stored inside the Keynote package.
             set thisMovie to make new image with properties {file:movieAlias}
-            delay 1
+            delay 2
+
+            if thisMovie is missing value then error "Keynote did not create a movie/image object from the selected video."
 
             tell thisMovie
                 set movWidth to (docWidth * 40) div 100
                 set width to movWidth
-                set movHeight to height
 
-                -- Bottom-right demo region. Keep the official comparison blocks
-                -- readable and leave a small safe margin around the movie.
+                -- Do not depend on Keynote reporting intrinsic movie height during
+                -- import. Force a stable 16:9 box that fits the slide safely.
+                set movHeight to (movWidth * 9) div 16
+                set height to movHeight
+
                 set xPos to (docWidth * 57) div 100
                 set yPos to (docHeight * 48) div 100
                 if (xPos + movWidth) > (docWidth - 18) then set xPos to docWidth - movWidth - 18
