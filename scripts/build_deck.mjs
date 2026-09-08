@@ -14,18 +14,57 @@ if (!root || !runtimeJson || !skillDir || !runtimePython) {
 const data = JSON.parse(await fs.readFile(runtimeJson, "utf8"));
 const presentation = await PresentationFile.importPptx(await FileBlob.load(data.source));
 
-for (const edit of data.overrides || []) {
-  if (edit.action === "replace_text") {
-    const before = await presentation.inspect({
+function rowsFromInspection(result) {
+  return result.ndjson
+    .split("\n")
+    .filter(Boolean)
+    .map(line => JSON.parse(line));
+}
+
+function candidateOnSlide(rows, slide) {
+  return rows.find(row => row.slide === slide && row.id && row.kind === "textbox");
+}
+
+function fallbackProbe(text) {
+  // Artifact-tool search treats some punctuation (notably '*') specially.
+  // Pick the longest plain-text fragment so we can locate the same textbox,
+  // while still applying the exact literal replacement afterwards.
+  const fragments = text
+    .split(/[\*;:,.()\[\]{}<>→–—|/\\]+/u)
+    .map(part => part.replace(/\s+/g, " ").trim())
+    .filter(part => part.length >= 12);
+  fragments.sort((a, b) => b.length - a.length);
+  return fragments[0] || text.replace(/[^\p{L}\p{N}\s_-]/gu, " ").replace(/\s+/g, " ").trim();
+}
+
+async function findTextboxForOverride(edit) {
+  const exact = await presentation.inspect({
+    kind: "slide,textbox,shape,table,chart,notes",
+    search: edit.search,
+    maxChars: 12000,
+  });
+  let candidate = candidateOnSlide(rowsFromInspection(exact), edit.slide);
+  if (candidate) return candidate;
+
+  const probe = fallbackProbe(edit.search);
+  if (probe && probe !== edit.search) {
+    const fallback = await presentation.inspect({
       kind: "slide,textbox,shape,table,chart,notes",
-      search: edit.search,
+      search: probe,
       maxChars: 12000,
     });
-    const candidate = before.ndjson
-      .split("\n")
-      .filter(Boolean)
-      .map(line => JSON.parse(line))
-      .find(row => row.slide === edit.slide && row.id && row.kind === "textbox");
+    candidate = candidateOnSlide(rowsFromInspection(fallback), edit.slide);
+    if (candidate) {
+      console.log(`Override lookup fallback on slide ${edit.slide}: ${probe}`);
+      return candidate;
+    }
+  }
+  return null;
+}
+
+for (const edit of data.overrides || []) {
+  if (edit.action === "replace_text") {
+    const candidate = await findTextboxForOverride(edit);
     if (!candidate) {
       throw new Error(`Could not find text override target on slide ${edit.slide}: ${edit.search}`);
     }
