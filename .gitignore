@@ -1,11 +1,44 @@
+# Mac metadata
 .DS_Store
+
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+
+# Build intermediates
 .build/
 .codex-finalizer/
-node_modules
+
+# Node
+node_modules/
+
+# Temporary files
 *.tmp
+acmot_v7_*.pptx
+acmot_v7_fix_*.pptx
+acmot_v7_build_*.pptx
+
+# PowerPoint lock files
 ~$*.pptx
+~$*.ppt
+
+# Validation artefacts
 output/*.validation.json
 output/presentation.pptx
 output/presentation_image_backed_backup_*.pptx
+
+# Render / QA outputs
+*.render/
+output/*.png
+output/*.pdf
+render_qa/
+
+# Keynote temps
+*.key.tmp
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp

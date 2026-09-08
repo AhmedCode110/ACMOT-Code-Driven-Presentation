@@ -1,48 +1,89 @@
 #!/bin/bash
+# build_final_mac.sh — AC-MOT V7 one-command Mac build
+#
+# Normal workflow (Codex runtime available):
+#   1. python3 build.py          — generates intermediate PPTX via Node.js/Codex
+#   2. embed_video_v7.py         — physically embeds the MP4 into the PPTX
+#   3. v7_targeted_fixes.py      — applies A1/30.1 FPS label + font normalisation
+#   4. scripts/validate.py       — comprehensive A–J validation
+#
+# Direct workflow (no Codex runtime — Claude Code / local Mac):
+#   Run scripts/build_v7_from_source.py which applies XML patches directly.
+#
+# Keynote round-trip is OPTIONAL and disabled by default because AppleScript
+# automation has historically produced -1708/-1700/-1728/-1712 errors.
+# Set KEYNOTE=1 to enable it.
+
 set -euo pipefail
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-PARENT="$(dirname "$ROOT")"
-VIDEO_DIR="$ROOT/assets/videos"
-BUILT="$ROOT/output/.ACMOT_Final_Paper_Realtime_v5_pre_keynote.pptx"
-FINAL_KEY="$PARENT/ACMOT_Final_Paper_Realtime_v5_FINAL.key"
-FINAL_PPTX="$ROOT/output/ACMOT_Final_Paper_Realtime_v5.pptx"
 cd "$ROOT"
 
-echo "Project: $ROOT"
-echo "Branch: $(git branch --show-current)"
-if [[ "$(git branch --show-current)" != "acmot-paper-realtime-v5" ]]; then
-  echo "ERROR: expected branch acmot-paper-realtime-v5" >&2
+VIDEO="$ROOT/assets/videos/uav0000249_00001_v_ACMOT_PRESENTATION_COMPACT.mp4"
+INTERMEDIATE="$ROOT/output/.ACMOT_Final_Paper_Realtime_v7_pre_keynote.pptx"
+FINAL="$ROOT/output/ACMOT_Final_Paper_Realtime_v7.pptx"
+KEYNOTE="${KEYNOTE:-0}"
+
+echo "============================================================"
+echo "  AC-MOT V7 — Mac build"
+echo "  Branch : $(git branch --show-current)"
+echo "  Root   : $ROOT"
+echo "============================================================"
+
+if [[ "$(git branch --show-current)" != "acmot-paper-realtime-v7" ]]; then
+  echo "ERROR: expected branch acmot-paper-realtime-v7" >&2
   exit 1
 fi
-VIDEO="$VIDEO_DIR/uav0000249_00001_v_ACMOT_PRESENTATION_COMPACT.mp4"
+
 if [[ ! -f "$VIDEO" ]]; then
-  echo "ERROR: required video not found: $VIDEO" >&2
+  echo "ERROR: evidence video not found: $VIDEO" >&2
   exit 1
 fi
-echo "Video selected: $VIDEO"
-python3 build.py
-if [[ ! -f "$BUILT" ]]; then
-  echo "ERROR: build did not create $BUILT" >&2
+echo "Video    : $VIDEO"
+
+mkdir -p "$ROOT/output"
+
+# ── Step 1: generate the presentation ────────────────────────────────────────
+if python3 build.py 2>/dev/null; then
+  echo "Step 1   : Codex build succeeded"
+else
+  echo "Step 1   : Codex Node.js runtime unavailable — running direct XML build"
+  python3 scripts/build_v7_from_source.py
+fi
+
+if [[ ! -f "$INTERMEDIATE" ]] && [[ ! -f "$FINAL" ]]; then
+  echo "ERROR: neither intermediate nor final PPTX was produced" >&2
   exit 1
 fi
-rm -rf "$FINAL_KEY"
-rm -f "$FINAL_PPTX"
-osascript "$ROOT/scripts/finalize_keynote.applescript" \
-  "$BUILT" "$VIDEO" "$FINAL_KEY" "$FINAL_PPTX"
-if [[ ! -e "$FINAL_KEY" ]]; then
-  echo "ERROR: Keynote final file was not created: $FINAL_KEY" >&2
-  exit 1
+
+# ── Step 2: embed video (only if intermediate was produced by Codex build) ───
+if [[ -f "$INTERMEDIATE" ]] && [[ ! -f "$FINAL" ]]; then
+  echo "Step 2   : embedding evidence video"
+  python3 scripts/embed_video_v7.py
 fi
-if [[ ! -f "$FINAL_PPTX" ]]; then
-  echo "ERROR: final PowerPoint was not created: $FINAL_PPTX" >&2
-  exit 1
+
+# ── Step 3: apply targeted XML fixes ─────────────────────────────────────────
+if [[ -f "$FINAL" ]]; then
+  echo "Step 3   : applying targeted V7 XML fixes"
+  python3 scripts/v7_targeted_fixes.py
 fi
-python3 "$ROOT/scripts/embed_video_v5.py"
-python3 "$ROOT/scripts/verify_final_pptx.py" "$FINAL_PPTX"
-echo "FINAL KEY : $FINAL_KEY"
-du -sh "$FINAL_KEY"
-echo "FINAL PPTX: $FINAL_PPTX"
-du -h "$FINAL_PPTX"
-echo "VIDEO     : $VIDEO"
-echo "VIDEO     : embedded natively on slide 59"
-open -a Keynote "$FINAL_KEY"
+
+# ── Step 4 (optional): Keynote round-trip ────────────────────────────────────
+if [[ "$KEYNOTE" == "1" ]] && [[ -f "$INTERMEDIATE" ]]; then
+  echo "Step 4   : Keynote round-trip (optional)"
+  FINAL_KEY="$(dirname "$ROOT")/ACMOT_Final_Paper_Realtime_v7_FINAL.key"
+  osascript "$ROOT/scripts/finalize_keynote.applescript" \
+    "$INTERMEDIATE" "$VIDEO" "$FINAL_KEY" "$FINAL" || {
+    echo "WARNING: Keynote step failed — continuing with existing PPTX"
+  }
+fi
+
+# ── Step 5: comprehensive A–J validation ─────────────────────────────────────
+echo "Step 5   : validating final PPTX"
+python3 scripts/validate.py "$FINAL"
+
+echo ""
+echo "============================================================"
+echo "  FINAL PPTX : $FINAL"
+du -sh "$FINAL"
+echo "============================================================"
