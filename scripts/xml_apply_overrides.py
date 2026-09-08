@@ -38,6 +38,17 @@ RESULT_SLIDES = {54, 55, 56, 58, 59}
 AUTOFIT_SCALE = {54: 90000, 55: 93000, 56: 88000, 58: 93000, 59: 90000}
 OFFICIAL_VALUES = ("19.718", "22.999", "28.418", "33.017")
 
+# Legacy qualitative slide-59 values that may survive Artifact Tool text matching
+# because the original PPTX splits/normalizes whitespace across runs.
+SLIDE59_LEGACY_TO_OFFICIAL = {
+    "0.2161": "19.718",
+    "0.4449": "22.999",
+    "0.3505": "32.716",
+    "0.5359": "40.021",
+    "+0.2287": "+3.281 points",
+    "+0.1854": "+7.305 points",
+}
+
 # Preserve specialist/symbol fonts.  Only ordinary UI/document families are normalized.
 NORMALIZABLE_FONTS = {
     "",
@@ -111,6 +122,21 @@ def _set_fill(rpr: ET.Element, rgb: str, force: bool = False) -> None:
         srgb.set("val", rgb.replace("#", "").upper())
 
 
+def _replace_slide59_legacy_values(root: ET.Element) -> None:
+    """Force only the known legacy comparison numerics to the final official values.
+
+    This is intentionally narrow: it changes no charts, geometry, images, or other
+    research text. It exists because slide 59's original text is split across runs,
+    which makes literal high-level replacements unreliable on some builds.
+    """
+    for node in root.findall(".//a:t", NS):
+        text = node.text or ""
+        for old, new in SLIDE59_LEGACY_TO_OFFICIAL.items():
+            if old in text:
+                text = text.replace(old, new)
+        node.text = text
+
+
 def _normalize_text_shape(shape: ET.Element, slide_no: int) -> None:
     is_title = _is_title_shape(shape, slide_no)
     family = TITLE_FONT if is_title else BODY_FONT
@@ -156,6 +182,8 @@ def _normalize_text_shape(shape: ET.Element, slide_no: int) -> None:
 
 def _patch_slide_xml(xml_bytes: bytes, slide_no: int) -> bytes:
     root = ET.fromstring(xml_bytes)
+    if slide_no == 59:
+        _replace_slide59_legacy_values(root)
     for shape in root.findall(".//p:sp", NS):
         _normalize_text_shape(shape, slide_no)
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
@@ -238,7 +266,8 @@ def apply(pptx_path: Path = OUTPUT) -> None:
 
     print(
         "Applied editable XML formatting pass: Helvetica Neue typography, "
-        "accent titles, conservative Results-slide autofit, and chart text readability."
+        "accent titles, conservative Results-slide autofit, chart readability, "
+        "and official Slide 59 comparison values."
     )
 
 
