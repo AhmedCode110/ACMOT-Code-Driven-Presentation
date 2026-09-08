@@ -66,6 +66,10 @@ fi
 if [[ -f "$FINAL" ]]; then
   echo "Step 3   : applying targeted V7 XML fixes"
   python3 scripts/v7_targeted_fixes.py
+  echo "Step 3b  : raising tiny table text, normalising font sizes"
+  python3 scripts/fix_typography.py
+  echo "Step 3c  : containing text inside its blocks, repairing font attributes"
+  python3 scripts/fix_layout_fit.py
 fi
 
 # ── Step 4 (optional): Keynote round-trip ────────────────────────────────────
@@ -82,8 +86,25 @@ fi
 echo "Step 5   : validating final PPTX"
 python3 scripts/validate.py "$FINAL"
 
+# ── Step 6: export a native Keynote document for Mac presenting ──────────────
+# Optional and non-fatal: the PPTX stays the authoritative deliverable.
+FINAL_KEY="$ROOT/output/ACMOT_Final_Paper_Realtime_v7.key"
+if [[ "${SKIP_KEY:-0}" != "1" ]]; then
+  echo "Step 6   : exporting native Keynote document"
+  rm -rf "$FINAL_KEY"
+  if osascript "$ROOT/scripts/export_keynote.applescript" "$FINAL" "$FINAL_KEY"; then
+    echo "           Keynote export OK"
+  else
+    echo "           WARNING: Keynote export failed — PPTX is still valid"
+  fi
+fi
+
 echo ""
 echo "============================================================"
 echo "  FINAL PPTX : $FINAL"
 du -sh "$FINAL"
+if [[ -e "$FINAL_KEY" ]]; then
+  echo "  FINAL KEY  : $FINAL_KEY"
+  du -sh "$FINAL_KEY"
+fi
 echo "============================================================"

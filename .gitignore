@@ -42,3 +42,6 @@ render_qa/
 .vscode/
 .idea/
 *.swp
+
+# Keynote export (generated, large binary)
+output/*.key
