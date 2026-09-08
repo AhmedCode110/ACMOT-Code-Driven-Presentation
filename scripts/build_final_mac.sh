@@ -22,19 +22,19 @@ if [[ ! -d "$VIDEO_DIR" ]]; then
   exit 1
 fi
 
-# Prefer a comparison video whose name contains both baseline and AC-MOT/ACMOT.
+# Prefer a comparison video whose name contains both Baseline and AC-MOT/ACMOT.
 VIDEO="$(find "$VIDEO_DIR" -maxdepth 1 -type f \( -iname '*.mp4' -o -iname '*.mov' -o -iname '*.m4v' \) -print | \
-  awk 'BEGIN{IGNORECASE=1} /baseline/ && /ac[-_ ]?mot|acmot/ {print; exit}')"
+  awk 'BEGIN{IGNORECASE=1} /baseline/ && /ac[-_ ]?mot|acmot/ {print; exit}' || true)"
 
-# If there is no explicitly named comparison file, prefer files with compare/comparison.
+# Second preference: comparison/vs naming.
 if [[ -z "$VIDEO" ]]; then
   VIDEO="$(find "$VIDEO_DIR" -maxdepth 1 -type f \( -iname '*.mp4' -o -iname '*.mov' -o -iname '*.m4v' \) -print | \
-    awk 'BEGIN{IGNORECASE=1} /compar|vs/ {print; exit}')"
+    awk 'BEGIN{IGNORECASE=1} /compar|vs/ {print; exit}' || true)"
 fi
 
-# Final fallback: use the first video in the supplied folder, but print it clearly.
+# Final fallback: first supported video in the exact folder supplied by the user.
 if [[ -z "$VIDEO" ]]; then
-  VIDEO="$(find "$VIDEO_DIR" -maxdepth 1 -type f \( -iname '*.mp4' -o -iname '*.mov' -o -iname '*.m4v' \) -print -quit)"
+  VIDEO="$(find "$VIDEO_DIR" -maxdepth 1 -type f \( -iname '*.mp4' -o -iname '*.mov' -o -iname '*.m4v' \) -print -quit 2>/dev/null || true)"
 fi
 
 if [[ -z "$VIDEO" || ! -f "$VIDEO" ]]; then
