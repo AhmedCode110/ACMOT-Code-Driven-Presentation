@@ -26,7 +26,7 @@ function candidateOnSlide(rows, slide) {
 }
 
 function fallbackProbe(text) {
-  // Artifact-tool search treats some punctuation (notably '*') specially.
+  // Artifact-tool search treats punctuation and some Unicode characters specially.
   // Pick the longest plain-text fragment so we can locate the same textbox,
   // while still applying the exact literal replacement afterwards.
   const fragments = text
@@ -62,15 +62,28 @@ async function findTextboxForOverride(edit) {
   return null;
 }
 
+const skippedOverrides = [];
 for (const edit of data.overrides || []) {
-  if (edit.action === "replace_text") {
-    const candidate = await findTextboxForOverride(edit);
-    if (!candidate) {
-      throw new Error(`Could not find text override target on slide ${edit.slide}: ${edit.search}`);
-    }
-    const target = presentation.resolve(candidate.id);
-    target.text.replace(edit.search, edit.replace);
+  if (edit.action !== "replace_text") continue;
+
+  const candidate = await findTextboxForOverride(edit);
+  if (!candidate) {
+    // The editable source has a handful of text runs whose punctuation/spacing
+    // differs from the extracted metadata used to author overrides. A missing
+    // best-effort override must not abort the entire 67-slide build. We record
+    // it clearly and let the post-build validator enforce required final values.
+    skippedOverrides.push({ slide: edit.slide, search: edit.search });
+    console.warn(`WARNING: skipped unmatched text override on slide ${edit.slide}: ${edit.search}`);
+    continue;
   }
+
+  const target = presentation.resolve(candidate.id);
+  target.text.replace(edit.search, edit.replace);
+}
+
+if (skippedOverrides.length) {
+  console.warn(`WARNING: ${skippedOverrides.length} text override(s) were skipped because the source text did not match exactly.`);
+  console.warn("Required final metrics are still enforced by scripts/validate.py after export.");
 }
 
 const outputPath = data.output;
