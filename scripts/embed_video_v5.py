@@ -2,7 +2,7 @@ from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
 import shutil, tempfile
 import xml.etree.ElementTree as ET
-PPTX=Path('output/ACMOT_Final_Paper_Realtime_v5.pptx').resolve()
+PPTX=Path('output/ACMOT_Final_Paper_Realtime_v6.pptx').resolve()
 VIDEO=Path('assets/videos/uav0000249_00001_v_ACMOT_PRESENTATION_COMPACT.mp4').resolve()
 P='http://schemas.openxmlformats.org/presentationml/2006/main'
 A='http://schemas.openxmlformats.org/drawingml/2006/main'

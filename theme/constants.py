@@ -19,5 +19,5 @@ MARGIN_RIGHT = 58
 MARGIN_TOP = 42
 MARGIN_BOTTOM = 42
 
-OUTPUT_FILE = "output/.ACMOT_Final_Paper_Realtime_v5_pre_keynote.pptx"
+OUTPUT_FILE = "output/.ACMOT_Final_Paper_Realtime_v6.pptx"
 SOURCE_REFERENCE = "reference/original_presentation.pptx"
