@@ -25,10 +25,17 @@ function candidateOnSlide(rows, slide) {
   return rows.find(row => row.slide === slide && row.id && row.kind === "textbox");
 }
 
+function escapeRegex(text) {
+  // artifact-tool's inspect(search=...) treats search as a regular expression.
+  // All override strings in this project are intended as literal text, so
+  // escape regex metacharacters before searching. This prevents failures for
+  // strings such as "+32.1% MOTA", "HOTA*", parentheses, brackets, etc.
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function fallbackProbe(text) {
-  // Artifact-tool search treats punctuation and some Unicode characters specially.
-  // Pick the longest plain-text fragment so we can locate the same textbox,
-  // while still applying the exact literal replacement afterwards.
+  // Pick a long plain-text fragment when the exact literal text differs from
+  // the PPTX because of punctuation or spacing differences.
   const fragments = text
     .split(/[\*;:,.()\[\]{}<>→–—|/\\]+/u)
     .map(part => part.replace(/\s+/g, " ").trim())
@@ -37,22 +44,22 @@ function fallbackProbe(text) {
   return fragments[0] || text.replace(/[^\p{L}\p{N}\s_-]/gu, " ").replace(/\s+/g, " ").trim();
 }
 
-async function findTextboxForOverride(edit) {
-  const exact = await presentation.inspect({
+async function inspectLiteral(searchText) {
+  return presentation.inspect({
     kind: "slide,textbox,shape,table,chart,notes",
-    search: edit.search,
+    search: escapeRegex(searchText),
     maxChars: 12000,
   });
+}
+
+async function findTextboxForOverride(edit) {
+  const exact = await inspectLiteral(edit.search);
   let candidate = candidateOnSlide(rowsFromInspection(exact), edit.slide);
   if (candidate) return candidate;
 
   const probe = fallbackProbe(edit.search);
   if (probe && probe !== edit.search) {
-    const fallback = await presentation.inspect({
-      kind: "slide,textbox,shape,table,chart,notes",
-      search: probe,
-      maxChars: 12000,
-    });
+    const fallback = await inspectLiteral(probe);
     candidate = candidateOnSlide(rowsFromInspection(fallback), edit.slide);
     if (candidate) {
       console.log(`Override lookup fallback on slide ${edit.slide}: ${probe}`);
