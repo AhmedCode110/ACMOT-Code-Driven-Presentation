@@ -159,6 +159,7 @@ def main() -> None:
     # Second pass: Results-only polish for slides 54,55,56,58,59. This changes
     # native text formatting/alignment only and keeps charts/shapes editable.
     subprocess.run([sys.executable, str(FINAL_POLISH_XML), str(OUTPUT)], check=True)
+    subprocess.run([sys.executable, str(ROOT / "scripts" / "v6_results_layout.py"), str(OUTPUT)], check=True)
 
     # Validate post-processed package, exact slide count, exact official values,
     # and rejection of historical slide-59 ablation numerics.
