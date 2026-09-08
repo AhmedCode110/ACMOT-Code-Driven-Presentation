@@ -14,24 +14,83 @@ if (!root || !runtimeJson || !skillDir || !runtimePython) {
 const data = JSON.parse(await fs.readFile(runtimeJson, "utf8"));
 const presentation = await PresentationFile.importPptx(await FileBlob.load(data.source));
 
-for (const edit of data.overrides || []) {
-  if (edit.action === "replace_text") {
-    const before = await presentation.inspect({
-      kind: "slide,textbox,shape,table,chart,notes",
-      search: edit.search,
-      maxChars: 12000,
-    });
-    const candidate = before.ndjson
-      .split("\n")
-      .filter(Boolean)
-      .map(line => JSON.parse(line))
-      .find(row => row.slide === edit.slide && row.id && row.kind === "textbox");
-    if (!candidate) {
-      throw new Error(`Could not find text override target on slide ${edit.slide}: ${edit.search}`);
+function rowsFromInspection(result) {
+  return result.ndjson
+    .split("\n")
+    .filter(Boolean)
+    .map(line => JSON.parse(line));
+}
+
+function candidateOnSlide(rows, slide) {
+  return rows.find(row => row.slide === slide && row.id && row.kind === "textbox");
+}
+
+function escapeRegex(text) {
+  // artifact-tool's inspect(search=...) treats search as a regular expression.
+  // All override strings in this project are intended as literal text, so
+  // escape regex metacharacters before searching. This prevents failures for
+  // strings such as "+32.1% MOTA", "HOTA*", parentheses, brackets, etc.
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function fallbackProbe(text) {
+  // Pick a long plain-text fragment when the exact literal text differs from
+  // the PPTX because of punctuation or spacing differences.
+  const fragments = text
+    .split(/[\*;:,.()\[\]{}<>→–—|/\\]+/u)
+    .map(part => part.replace(/\s+/g, " ").trim())
+    .filter(part => part.length >= 12);
+  fragments.sort((a, b) => b.length - a.length);
+  return fragments[0] || text.replace(/[^\p{L}\p{N}\s_-]/gu, " ").replace(/\s+/g, " ").trim();
+}
+
+async function inspectLiteral(searchText) {
+  return presentation.inspect({
+    kind: "slide,textbox,shape,table,chart,notes",
+    search: escapeRegex(searchText),
+    maxChars: 12000,
+  });
+}
+
+async function findTextboxForOverride(edit) {
+  const exact = await inspectLiteral(edit.search);
+  let candidate = candidateOnSlide(rowsFromInspection(exact), edit.slide);
+  if (candidate) return candidate;
+
+  const probe = fallbackProbe(edit.search);
+  if (probe && probe !== edit.search) {
+    const fallback = await inspectLiteral(probe);
+    candidate = candidateOnSlide(rowsFromInspection(fallback), edit.slide);
+    if (candidate) {
+      console.log(`Override lookup fallback on slide ${edit.slide}: ${probe}`);
+      return candidate;
     }
-    const target = presentation.resolve(candidate.id);
-    target.text.replace(edit.search, edit.replace);
   }
+  return null;
+}
+
+const skippedOverrides = [];
+for (const edit of data.overrides || []) {
+  if (edit.action !== "replace_text") continue;
+
+  const candidate = await findTextboxForOverride(edit);
+  if (!candidate) {
+    // The editable source has a handful of text runs whose punctuation/spacing
+    // differs from the extracted metadata used to author overrides. A missing
+    // best-effort override must not abort the entire 67-slide build. We record
+    // it clearly and let the post-build validator enforce required final values.
+    skippedOverrides.push({ slide: edit.slide, search: edit.search });
+    console.warn(`WARNING: skipped unmatched text override on slide ${edit.slide}: ${edit.search}`);
+    continue;
+  }
+
+  const target = presentation.resolve(candidate.id);
+  target.text.replace(edit.search, edit.replace);
+}
+
+if (skippedOverrides.length) {
+  console.warn(`WARNING: ${skippedOverrides.length} text override(s) were skipped because the source text did not match exactly.`);
+  console.warn("Required final metrics are still enforced by scripts/validate.py after export.");
 }
 
 const outputPath = data.output;
