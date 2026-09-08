@@ -14,7 +14,26 @@ from theme.constants import OUTPUT_FILE
 
 OUTPUT = ROOT / OUTPUT_FILE
 EXPECTED_SLIDES = 67
-SLIDE59_REQUIRED = ("19.718", "22.999", "28.418", "33.017")
+SLIDE59_REQUIRED = (
+    "19.718",
+    "22.999",
+    "28.418",
+    "33.017",
+    "32.716",
+    "40.021",
+    "1238",
+    "994",
+    "44.181",
+    "37.686",
+)
+SLIDE59_FORBIDDEN_HISTORICAL = (
+    "0.2161",
+    "0.4449",
+    "0.3505",
+    "0.5359",
+    "+0.2287",
+    "+0.1854",
+)
 
 
 def _slide_number(name: str) -> int:
@@ -83,6 +102,14 @@ def main() -> None:
                         problems.append(
                             "Slide 59 is missing official metric value(s): " + ", ".join(missing)
                         )
+                    historical = [
+                        value for value in SLIDE59_FORBIDDEN_HISTORICAL if value in s59_text
+                    ]
+                    if historical:
+                        problems.append(
+                            "Slide 59 still contains historical ablation value(s): "
+                            + ", ".join(historical)
+                        )
         except Exception as exc:
             problems.append(f"PPTX integrity read failed: {exc}")
 
@@ -92,8 +119,8 @@ def main() -> None:
         raise SystemExit(1)
 
     print(
-        f"OK: {EXPECTED_SLIDES} slides; PPTX package readable; "
-        f"slide 59 official metrics present; output={OUTPUT}"
+        f"OK: {EXPECTED_SLIDES} slides; PPTX package readable; slide 59 contains all "
+        f"10 official final values and no historical ablation values; output={OUTPUT}"
     )
 
 
